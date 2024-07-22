@@ -1,9 +1,13 @@
 import numpy as np
 from Engine.objects.base_object import engine_object
 from numba import njit, prange
-#texture object, acts as both PIL image and an engine object
+import Engine.utils.error_types as error_types
+import Engine.utils.object_handling.image_handling.image_scale as image_scaler
+import Engine.utils.object_handling.image_handling.greyscale_to_rgb as greyscale_to_rgb
+import Engine.utils.object_handling.image_handling.superimpose as superimposer
+from Engine.utils.object_handling.image_handling.image_check import image_check
 class texture(engine_object):
-    def __init__(self, size_x, size_y):
+    def __init__(self, size_x=1, size_y=1):
 
         super().__init__()
 
@@ -16,29 +20,15 @@ class texture(engine_object):
 
     #a wrapper function to rescale the texture
     def __reScale__(self, new_x, new_y):
-        scaled_image = self._compiledScaler(self.image_arr, new_x, new_y) #passing method into njitted version to ensure speed
+        scaled_image = image_scaler.imageScalerClosest(self.image_arr, new_x, new_y) #passing method into njitted version to ensure speed
         self.image_arr = scaled_image
         self.current_size_y = new_y
         self.current_size_x = new_x
 
-
-
-    #TODO: FINISH
-    @staticmethod
-    @njit(parallel=True)
-    def _compiledScaler(image_arr, new_x, new_y):
-        scale_factor_x = new_x / image_arr.shape[0]  #getting scale factor for X
-        scale_factor_y =  new_y / image_arr.shape[1]     #getting scale factor for Y
-
-        new_image = np.zeros((new_x, new_y, 4)) #making new image arr
-
-        for x_position in prange(new_x):
-            for y_position in range(new_y):
-                for layer_index in range(4): #looping each layer
-                    current_position_x = x_position /
-                    new_image[x_position, y_position, layer_index] = 0
-
-
-
+    def __setImage__(self, new_image_arr : np.ndarray):
+        self.image_arr = image_check(new_image_arr)
+    #Method that can superimpose two images
+    def __superimpose__(self, new_image, loc_x, loc_y):
+        self.image_arr = superimposer.superimpose_image(self.image_arr, new_image, loc_x, loc_y)
     def __onRender__(self) -> np.ndarray:
-        self.image_arr
+        return self.image_arr

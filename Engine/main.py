@@ -13,6 +13,10 @@ import Engine.utils.misc as misc_utils
 import Engine.objects.keylogger_object as keylogger_object
 import Engine.objects.scene_object as scene_object
 
+#importing main classes for displaying objects
+import Engine.objects.rendering.texture as textures #will be used as the screen
+import Engine.objects.rendering.mesh as meshes
+
 #renderign apis
 import glfw
 from OpenGL.GL import *
@@ -37,12 +41,15 @@ global_data.flags.update({'window_resolution': (500,500)})
 #data involving scenes
 scene_object_handler.createScene('main', scene_object.scene) #making a basic scene
 scene_object_handler.createScene('global', scene_object.scene) #this scene is for all of the global objects
+#getting window resolution
+window_res = global_data.flags['window_resolution']
+display_texture = textures.texture(window_res[0], window_res[1])
+
 
 
 
 #initialising window, need to add options to be able to customise it
 glfw.init()
-window_res = global_data.flags['window_resolution']
 window = glfw.create_window(window_res[0], window_res[1], global_data.flags['window_name'], None, None)
 if not window:
     global_data.flags['logger'].log('Unable to make openGL window', 'FATAL', 8)
