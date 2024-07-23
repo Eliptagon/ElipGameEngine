@@ -26,8 +26,9 @@ def checkObject(input_object, input_object_name):
 def safeExecute(input_object, input_object_name, function, **funcArgs):
     logger = global_data.flags['logger']
     input_object = checkObject(input_object, input_object_name)
+    returning_object = None #object that will be returned if the object errors
     try:
-        function(**funcArgs)
+         returning_object = function(**funcArgs)
     except Exception as exc1:  # allow the object to try and handle its own error
         logger.log(message = f'Object named {input_object_name} has errored while executing: {function.__name__}!, attempting to let the object to'
                    f' recover', exception = exc1, severity = 'ERROR')
@@ -40,3 +41,5 @@ def safeExecute(input_object, input_object_name, function, **funcArgs):
                            f' closing now...', 'FATAL', 3)
         except Exception as exc2:
             logger.log(f'Object named {input_object_name} Errored further when attempting to correct.\n',exc2, 'FATAL', 4)
+
+    return returning_object#returning the output of teh function executed

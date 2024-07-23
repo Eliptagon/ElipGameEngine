@@ -25,7 +25,7 @@ class logger:
         else:
             traceback = ''
 
-        msg = f'\n{colour_table.get(severity, Fore.MAGENTA)}[{str(datetime.datetime.now()).split('.')[0]}] [{severity}] {message}{traceback}, {Style.RESET_ALL}' #single line that formats teh output message
+        msg = f'\n{colour_table.get(severity, Fore.MAGENTA)}[{str(datetime.datetime.now()).split('.')[0]}] [{severity}] {message}, {traceback}{Style.RESET_ALL}\n' #single line that formats teh output message
         print(msg, end='')
         logFile = open(self.logFileName, 'a')
         logFile.write(msg)

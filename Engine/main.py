@@ -4,6 +4,10 @@
 #main reason for this engine to be written in python is so that the objects can utilise ANY language that can interface with python, ideally
 
 import time
+
+import numpy as np
+import pygame.display
+
 #importing utils
 import Engine.utils.logger as logger
 import Engine.utils.global_data as global_data
@@ -22,10 +26,13 @@ import glfw
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
+window_resolution= (1920,1080)
+
 #creating basic globals for use inside of the engine
 global_data.flags.update({'running': True})
 global_data.flags.update({'frame_counter': 0})
 global_data.flags.update({'delta_time': 0})
+global_data.flags.update({'clear_display': True})
 global_data.flags.update({'cpu_time': 0})
 global_data.flags.update({'gpu_time': 0})
 global_data.flags.update({'logger': logger.logger()})
@@ -33,7 +40,11 @@ global_data.flags.update({'key_logger': keylogger_object.keyLogger()})
 global_data.flags.update({'current_scene': 'main'})
 
 global_data.flags.update({'window_name': 'Sexy window'})
-global_data.flags.update({'window_resolution': (500,500)})
+global_data.flags.update({'window_resolution': window_resolution})
+#making window of teh correct resolution
+global_data.flags.update({'screen_texture': textures.texture(window_resolution[0],
+                                                             window_resolution[1])})
+
 
 
 
@@ -43,29 +54,29 @@ scene_object_handler.createScene('main', scene_object.scene) #making a basic sce
 scene_object_handler.createScene('global', scene_object.scene) #this scene is for all of the global objects
 #getting window resolution
 window_res = global_data.flags['window_resolution']
-display_texture = textures.texture(window_res[0], window_res[1])
 
 
 
 
-#initialising window, need to add options to be able to customise it
-glfw.init()
-window = glfw.create_window(window_res[0], window_res[1], global_data.flags['window_name'], None, None)
-if not window:
-    global_data.flags['logger'].log('Unable to make openGL window', 'FATAL', 8)
-
-global_data.flags.update({'window_object': window})
+#making the window:
+pygame.init()
+screen_object = pygame.display.set_mode(window_resolution)
+global_data.flags.update({'screen_object': screen_object})
+pygame.display.set_caption(global_data.flags['window_name'])
 
 
 
-
-
+#TODO: Make placement of objects based on fraction of screen rather than pixel values
+#TODO: Add buttons
+#TODO: Add sound engine
+#TODO: Add 3d
 #Main loop
 def mainloop():
     try:
         logger = global_data.flags['logger']
         logger.log('Starting Game', 'INFO')
         while global_data.flags['running']:
+            pygame.event.get() #to ensure window does not close
             frame_cpu_start = time.perf_counter() #cpu time of when the frame started
             global_data.flags['frame_counter'] += 1
             local_scene_name = global_data.flags['current_scene'] #getting current scene name
@@ -87,13 +98,40 @@ def mainloop():
             frame_cpu_end = time.perf_counter()
             global_data.flags['cpu_time'] = frame_cpu_end - frame_cpu_start
             frame_gpu_start = time.perf_counter()
+            #calling onRender for all objects
+            current_screen_texture = global_data.flags['screen_texture']
+            screen_resolution_x = global_data.flags['window_resolution'][0]
+            screen_resolution_y = global_data.flags['window_resolution'][1]
+            texture_resolution_x = global_data.flags['screen_texture'].current_size_x
+            texture_resolution_y = global_data.flags['screen_texture'].current_size_y
+            for object_instance, object_render_data in local_scene.toAll('__onRender__').items(): #all of teh resulting textures and objects from rendering results
+                if isinstance(object_render_data, np.ndarray):
+                    try:
+                        # location is 3 values in a numpy ndarray [x, y, z], will add sprite scaling based on Z coordinate in teh future
+                        if object_instance.do_render:
+                            object_location = object_instance.location.astype(np.int64) #as type int64 to ensure the scaling works
+                            current_screen_texture.__superimpose__(object_render_data, int(object_location[0]), int(object_location[1]))
+                    except:
+                        logger.log(f'Program has crashed while rendering object, location of object :{object_location}', 'FATAL')
 
-            glfw.poll_events()
-            glfw.swap_buffers(global_data.flags['window_object'])
+            # actually displaying whats in the screen
+
+            display_texture_as_arr = current_screen_texture.__reScale__(screen_resolution_y,screen_resolution_x, True).__asArray__() #getting display texture as a numpy array
+            pygame_display_texture = pygame.surfarray.make_surface(display_texture_as_arr[:, :, 3]) #we cant use alpha channel so we discard it
+            global_data.flags['screen_object'].blit(pygame_display_texture, (0,0))
+            pygame.display.flip() #actually updating screen
+            if global_data.flags['clear_display']:
+                current_screen_texture.__clear__() #clearing display texture
+
             frame_gpu_end = time.perf_counter()
+
+
             #calculating delta times
             global_data.flags['gpu_time'] = frame_gpu_end - frame_gpu_start
             global_data.flags['delta_time'] = global_data.flags['gpu_time'] + global_data.flags['cpu_time']
+
+
+
 
 
     except Exception as exc: #if all other error catching methods fail

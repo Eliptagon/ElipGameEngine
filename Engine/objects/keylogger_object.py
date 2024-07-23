@@ -13,7 +13,6 @@ class keyLogger(engine_object): #Dont worry: nothing malicious, just something t
         self.stacked_key_inputs = []
     def _addKeyDown(self, key):
         self.stacked_key_inputs.append(f'{str(key).replace("'", '')}_down')
-        print(self.stacked_key_inputs)
     def _addKeyUp(self, key):
         self.stacked_key_inputs.append(f'{str(key).replace("'", '')}_up')
 
