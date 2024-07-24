@@ -9,22 +9,18 @@ import numpy as np
 import pygame.display
 
 #importing utils
-import Engine.utils.logger as logger
-import Engine.utils.global_data as global_data
+import Engine.utils.error_handling.logger as logger
+import Engine.utils.data_handling.global_data as global_data
 import Engine.utils.object_handling.scene_objects as scene_object_handler
 import Engine.utils.misc as misc_utils
 #importing engine objects
-import Engine.objects.keylogger_object as keylogger_object
-import Engine.objects.scene_object as scene_object
+import Engine.objects.IO_objects.keylogger_object as keylogger_object
+import Engine.objects.base_objects.scene_object as scene_object
+from Engine.objects.render_objects.two_dimensional.image import imageRGBA
 
 #importing main classes for displaying objects
-import Engine.objects.rendering.texture as textures #will be used as the screen
-import Engine.objects.rendering.mesh as meshes
 
 #renderign apis
-import glfw
-from OpenGL.GL import *
-from OpenGL.GLU import *
 
 window_resolution= (1920,1080)
 
@@ -41,15 +37,14 @@ global_data.flags.update({'current_scene': 'main'})
 
 global_data.flags.update({'window_name': 'Sexy window'})
 global_data.flags.update({'window_resolution': window_resolution})
-#making window of teh correct resolution
-global_data.flags.update({'screen_texture': textures.texture(window_resolution[0],
-                                                             window_resolution[1])})
+#making screen textur of correct size
+global_data.flags.update({'screen_image': imageRGBA(window_resolution)})
 
 
 
 
 
-#data involving scenes
+#data_handling involving scenes
 scene_object_handler.createScene('main', scene_object.scene) #making a basic scene
 scene_object_handler.createScene('global', scene_object.scene) #this scene is for all of the global objects
 #getting window resolution
@@ -66,9 +61,9 @@ pygame.display.set_caption(global_data.flags['window_name'])
 
 
 
-#TODO: Make placement of objects based on fraction of screen rather than pixel values
 #TODO: Add buttons
 #TODO: Add sound engine
+#TODO: Juliafication - Converting some scripts into julia
 #TODO: Add 3d
 #Main loop
 def mainloop():
@@ -99,26 +94,13 @@ def mainloop():
             global_data.flags['cpu_time'] = frame_cpu_end - frame_cpu_start
             frame_gpu_start = time.perf_counter()
             #calling onRender for all objects
-            current_screen_texture = global_data.flags['screen_texture']
-            screen_resolution_x = global_data.flags['window_resolution'][0]
-            screen_resolution_y = global_data.flags['window_resolution'][1]
-            texture_resolution_x = global_data.flags['screen_texture'].current_size_x
-            texture_resolution_y = global_data.flags['screen_texture'].current_size_y
-            for object_instance, object_render_data in local_scene.toAll('__onRender__').items(): #all of teh resulting textures and objects from rendering results
-                if isinstance(object_render_data, np.ndarray):
-                    try:
-                        # location is 3 values in a numpy ndarray [x, y, z], will add sprite scaling based on Z coordinate in teh future
-                        if object_instance.do_render:
-                            object_location = object_instance.location.astype(np.int64) #as type int64 to ensure the scaling works
-                            current_screen_texture.__superimpose__(object_render_data, int(object_location[0]), int(object_location[1]))
-                    except:
-                        logger.log(f'Program has crashed while rendering object, location of object :{object_location}', 'FATAL')
+            current_screen_texture = global_data.flags['screen_image']
 
             # actually displaying whats in the screen
 
-            display_texture_as_arr = current_screen_texture.__reScale__(screen_resolution_y,screen_resolution_x, True).__asArray__() #getting display texture as a numpy array
-            pygame_display_texture = pygame.surfarray.make_surface(display_texture_as_arr[:, :, 3]) #we cant use alpha channel so we discard it
-            global_data.flags['screen_object'].blit(pygame_display_texture, (0,0))
+            display_texture_as_arr = current_screen_texture.__asArrayRGB__()
+            pygame_display_texture = pygame.surfarray.make_surface(display_texture_as_arr) #we cant use alpha channel so we discard it
+            global_data.flags['screen_object'].blit(pygame_display_texture, (0, 0))
             pygame.display.flip() #actually updating screen
             if global_data.flags['clear_display']:
                 current_screen_texture.__clear__() #clearing display texture
