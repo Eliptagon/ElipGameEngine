@@ -16,13 +16,18 @@ import Engine.utils.misc as misc_utils
 #importing engine objects
 import Engine.objects.IO_objects.keylogger_object as keylogger_object
 import Engine.objects.base_objects.scene_object as scene_object
+import Engine.objects.base_objects.base_object as base_objects
 from Engine.objects.render_objects.two_dimensional.image import imageRGBA
+from Engine.objects.render_objects.three_dimensional.mesh import mesh
+from Engine.objects.IO_objects.mouse_object import mouse
+import pygame.locals
+import ctypes
 
 #importing main classes for displaying objects
 
 #renderign apis
 
-window_resolution= (1920,1080)
+window_resolution= (1000,1000)
 
 #creating basic globals for use inside of the engine
 global_data.flags.update({'running': True})
@@ -33,8 +38,9 @@ global_data.flags.update({'cpu_time': 0})
 global_data.flags.update({'gpu_time': 0})
 global_data.flags.update({'logger': logger.logger()})
 global_data.flags.update({'key_logger': keylogger_object.keyLogger()})
+global_data.flags.update({'mouse_logger': 'main'})
 global_data.flags.update({'current_scene': 'main'})
-
+global_data.flags.update({'mouse': mouse()})
 global_data.flags.update({'window_name': 'Sexy window'})
 global_data.flags.update({'window_resolution': window_resolution})
 #making screen textur of correct size
@@ -55,7 +61,7 @@ window_res = global_data.flags['window_resolution']
 
 #making the window:
 pygame.init()
-screen_object = pygame.display.set_mode(window_resolution)
+screen_object = pygame.display.set_mode(window_resolution) #pygame.locals.DOUBLEBUF | pygame.locals.OPENGL)
 global_data.flags.update({'screen_object': screen_object})
 pygame.display.set_caption(global_data.flags['window_name'])
 
@@ -66,7 +72,7 @@ pygame.display.set_caption(global_data.flags['window_name'])
 #TODO: Juliafication - Converting some scripts into julia
 #TODO: Add 3d
 #Main loop
-def mainloop():
+def mainloop(func=''):
     try:
         logger = global_data.flags['logger']
         logger.log('Starting Game', 'INFO')
@@ -93,17 +99,50 @@ def mainloop():
             frame_cpu_end = time.perf_counter()
             global_data.flags['cpu_time'] = frame_cpu_end - frame_cpu_start
             frame_gpu_start = time.perf_counter()
-            #calling onRender for all objects
+            #getting instance of current screen texture
             current_screen_texture = global_data.flags['screen_image']
+            #calling onRender for all objects
+            global_scene_render_data = global_scene.toAll('__onRender__')
+            local_scene_render_data = local_scene.toAll('__onRender__')
+            #adding renderdata from local objects to screen (local first)
+            for object_instance, render_data in local_scene_render_data.items():
+                if not isinstance(object_instance, base_objects.engine_object):
+                    logger.log('Non-engine object encountered while Rendering, skipping this object.', 'ERROR')
+                else:
+                    if isinstance(render_data, imageRGBA): #if the output is an image
+                        object_location_x = object_instance.location[0]
+                        object_location_y = object_instance.location[1]
+                        current_screen_texture.__addCompositeLayer__(object_location_x, object_location_y, render_data)
+                    if isinstance(render_data, mesh):
+                        raise NotImplementedError('Not implemented 3d mesh rendering')
 
+            #now adding renderdata from global objects
+            t1 = time.perf_counter()
+            for object_instance, render_data in global_scene_render_data.items():
+                if not isinstance(object_instance, base_objects.engine_object):
+                    logger.log('Non-engine object encountered while Rendering, skipping this object.', 'ERROR')
+                else:
+                    if isinstance(render_data, imageRGBA): #if the output is an image
+                        object_location_x = object_instance.location[0]
+                        object_location_y = object_instance.location[1]
+                        current_screen_texture.__addCompositeLayer__(object_location_x, object_location_y, render_data)
+                    if isinstance(render_data, mesh):
+                        raise NotImplementedError('Not implemented 3d mesh rendering')
+            t2 = time.perf_counter()
             # actually displaying whats in the screen
-
+            current_screen_texture.__executeCompositing__(mode='XY')
+            t4 = time.perf_counter()
             display_texture_as_arr = current_screen_texture.__asArrayRGB__()
+            t5 = time.perf_counter()
             pygame_display_texture = pygame.surfarray.make_surface(display_texture_as_arr) #we cant use alpha channel so we discard it
+            t6 = time.perf_counter()
             global_data.flags['screen_object'].blit(pygame_display_texture, (0, 0))
+            t7 = time.perf_counter()
             pygame.display.flip() #actually updating screen
+            t8 = time.perf_counter()
             if global_data.flags['clear_display']:
                 current_screen_texture.__clear__() #clearing display texture
+            t9 = time.perf_counter()
 
             frame_gpu_end = time.perf_counter()
 
@@ -111,6 +150,19 @@ def mainloop():
             #calculating delta times
             global_data.flags['gpu_time'] = frame_gpu_end - frame_gpu_start
             global_data.flags['delta_time'] = global_data.flags['gpu_time'] + global_data.flags['cpu_time']
+            global_data.flags['gpu_diagnostic'] = (f'{(t2-t1)*1000}ms to add all objects to object buffer\n'
+                                                   f'{(t4-t2)*1000}ms to composite all objects to image\n'
+                                                   f'{(t5-t4)*1000}ms to convert image to RGB array\n'
+                                                   f'{(t6-t5)*1000}ms to convert image to pygame surface to display\n'
+                                                   f'{(t7-t6)*1000}ms to add the new image to the display\n'
+                                                   f'{(t8-t7)*1000}ms to refresh the display\n'
+                                                   f'{(t9-t8)*1000}ms to clear the screen')
+            #to allow custom per-loop logic
+            try:
+                if func != '':
+                    func()
+            except:
+                logger.log('While attempting to execute main function, an error occurred', 'FATAL')
 
 
 
